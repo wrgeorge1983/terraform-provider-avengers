@@ -13,7 +13,7 @@ import (
 func Provider() *schema.Provider {
 	return &schema.Provider{
 		ResourcesMap: map[string]*schema.Resource{
-			"avengers_resource": resourceAvengers(),
+			"avengers_resource": resourceAvenger(),
 		},
 		DataSourcesMap: map[string]*schema.Resource{
 			"avengers_datasource": dataSourceAvengers(),

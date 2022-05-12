@@ -1,6 +1,12 @@
 package avengers
 
-import "github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
+import (
+	"context"
+	"log"
+
+	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
+)
 
 func dataSourceAvengers() *schema.Resource {
 	return &schema.Resource{
@@ -36,4 +42,29 @@ func dataSourceAvengers() *schema.Resource {
 			},
 		},
 	}
+}
+
+func resourceAvengersRead(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
+	log.Printf("[DEBUG] %s: Beginning resourceAvengersRead", d.Id())
+	var diags diag.Diagnostics
+	c := m.(*ApiClient)
+	// no values to pull from schema
+	// no api object
+	// call api
+	res, err := c.avengersClient.GetAllAvengers()
+	if err != nil {
+		return diag.FromErr(err)
+	}
+
+	// marshall response to schema
+	if res == nil {
+		return diag.Errorf("no avengers found in database")
+	}
+	resItems := flattenAvengers(&res)
+	if err := d.Set("avengers", resItems); err != nil {
+		return diag.FromErr(err)
+	}
+
+	log.Printf("[DEBUG] %s: resourceAvengersRead finished successfully", d.Id())
+	return diags
 }

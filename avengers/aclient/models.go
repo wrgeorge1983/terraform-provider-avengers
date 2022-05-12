@@ -14,7 +14,7 @@ type UpdateResult struct {
 }
 
 type DeleteResult struct {
-	DeletedCount int `json:"DeletedCount"`
+	DeletedCount int `json:"DeletedCount,omitempty"`
 }
 
 type InsertedResult struct {

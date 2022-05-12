@@ -4,6 +4,6 @@
 provider "github.com/wrgeorge1983/avengers" {
   version = "0.3.1"
   hashes = [
-    "h1:log4z5/bwWhx1mVnWB4c3Pxb9xctyQb8R2Kz+JrDQcY=",
+    "h1:77YJ78rgoIWOkzPrEamKnq2DnuTnCMqjgvTL5H2BKkk=",
   ]
 }

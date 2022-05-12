@@ -29,6 +29,36 @@ func (c Client) GetAllAvengers() ([]Avenger, error) {
 	return avengers, nil
 }
 
+//GetAvengerByID returns a specific Avenger
+func (c Client) GetAvengerById(id string) (*Avenger, error) {
+	avengers, err := c.GetAllAvengers()
+	if err != nil {
+		return nil, err
+	}
+
+	for _, avenger := range avengers {
+		if avenger.ID == id {
+			return &avenger, nil
+		}
+	}
+	return nil, nil
+}
+
+//GetAvengerByName returns a specific Avenger
+func (c Client) GetAvengerByName(name string) (*Avenger, error) {
+	avengers, err := c.GetAllAvengers()
+	if err != nil {
+		return nil, err
+	}
+
+	for _, avenger := range avengers {
+		if avenger.Name == name {
+			return &avenger, nil
+		}
+	}
+	return nil, nil
+}
+
 //CreateAvenger will create an Avenger
 func (c *Client) CreateAvenger(avenger Avenger) (*Avenger, error) {
 	avg, err := json.Marshal(avenger)
@@ -52,6 +82,7 @@ func (c *Client) CreateAvenger(avenger Avenger) (*Avenger, error) {
 		return nil, err
 	}
 	avenger.ID = insertedID.InsertedID
+
 	return &avenger, nil
 }
 

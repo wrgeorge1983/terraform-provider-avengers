@@ -2,10 +2,7 @@ package avengers
 
 import (
 	"context"
-	"encoding/json"
-	"fmt"
 	"log"
-	"net/http"
 
 	"terraform-provider-avengers/avengers/aclient"
 
@@ -13,41 +10,13 @@ import (
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 )
 
-func resourceAvengers() *schema.Resource {
+func resourceAvenger() *schema.Resource {
 	return &schema.Resource{
-		CreateContext: resourceAvengersCreate,
-		ReadContext:   resourceAvengersRead,
-		UpdateContext: resourceAvengersUpdate,
-		DeleteContext: resourceAvengersDelete,
+		CreateContext: resourceAvengerCreate,
+		ReadContext:   resourceAvengerRead,
+		UpdateContext: resourceAvengerUpdate,
+		DeleteContext: resourceAvengerDelete,
 		Schema: map[string]*schema.Schema{
-			"avengers": &schema.Schema{
-				Type:     schema.TypeList,
-				Computed: true,
-				Elem: &schema.Resource{
-					Schema: map[string]*schema.Schema{
-						"_id": &schema.Schema{
-							Type:        schema.TypeString,
-							Computed:    true,
-							Description: "the _id value returned from mongodb",
-						},
-						"name": &schema.Schema{
-							Type:        schema.TypeString,
-							Computed:    true,
-							Description: "full name of avenger",
-						},
-						"alias": &schema.Schema{
-							Type:        schema.TypeString,
-							Computed:    true,
-							Description: "any alias/nickname of avenger",
-						},
-						"weapon": &schema.Schema{
-							Type:        schema.TypeString,
-							Computed:    true,
-							Description: "his/her special weapons",
-						},
-					},
-				},
-			},
 			"_id": &schema.Schema{
 				Type:        schema.TypeString,
 				Computed:    true,
@@ -92,8 +61,8 @@ func resourceAvengers() *schema.Resource {
 	}
 }
 
-func resourceAvengersCreate(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
-	log.Printf("[DEBUG] %s: Beginning resourceAvengersCreate", d.Id())
+func resourceAvengerCreate(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
+	log.Printf("[DEBUG] %s: Beginning resourceAvengerCreate", d.Id())
 	var diags diag.Diagnostics
 	c := m.(*ApiClient)
 
@@ -115,33 +84,20 @@ func resourceAvengersCreate(ctx context.Context, d *schema.ResourceData, m inter
 		return diag.FromErr(err)
 	}
 
-	// marshall response to schema
-	if err := d.Set("_id", res.ID); err != nil {
-		return diag.FromErr(err)
-	}
-	if err := d.Set("name", res.Name); err != nil {
-		return diag.FromErr(err)
-	}
-	if err := d.Set("alias", res.Alias); err != nil {
-		return diag.FromErr(err)
-	}
-	if err := d.Set("weapon", res.Weapon); err != nil {
-		return diag.FromErr(err)
-	}
-
 	d.SetId(res.ID)
-	log.Printf("[DEBUG] %s: resourceAvengersCreate finished successfully", d.Id())
+	resourceAvengerRead(ctx, d, m)
+	log.Printf("[DEBUG] %s: resourceAvengerCreate finished successfully", d.Id())
 	return diags
 }
 
-func resourceAvengersRead(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
-	log.Printf("[DEBUG] %s: Beginning resourceAvengersRead", d.Id())
+func resourceAvengerRead(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
+	log.Printf("[DEBUG] %s: Beginning resourceAvengerRead", d.Id())
 	var diags diag.Diagnostics
 	c := m.(*ApiClient)
 	// no values to pull from schema
 	// no api object
 	// call api
-	res, err := c.avengersClient.GetAllAvengers()
+	res, err := c.avengersClient.GetAvengerById(d.Id())
 	if err != nil {
 		return diag.FromErr(err)
 	}
@@ -150,18 +106,21 @@ func resourceAvengersRead(ctx context.Context, d *schema.ResourceData, m interfa
 	if res == nil {
 		return diag.Errorf("no avengers found in database")
 	}
-	resItems := flattenAvengers(&res)
-	if err := d.Set("avengers", resItems); err != nil {
-		return diag.FromErr(err)
+	avengerMap := flattenAvenger(res)
+
+	for k, v := range *avengerMap {
+		if err := d.Set(k, v); err != nil {
+			return diag.FromErr(err)
+		}
 	}
 
-	log.Printf("[DEBUG] %s: resourceAvengersRead finished successfully", d.Id())
+	log.Printf("[DEBUG] %s: resourceAvengerRead finished successfully", d.Id())
 	return diags
 }
 
-func resourceAvengersUpdate(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
+func resourceAvengerUpdate(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
 
-	log.Printf("[DEBUG] %s: Beginning resourceAvengersUpdate", d.Id())
+	log.Printf("[DEBUG] %s: Beginning resourceAvengerUpdate", d.Id())
 	var diags diag.Diagnostics
 	c := m.(*ApiClient)
 
@@ -188,47 +147,12 @@ func resourceAvengersUpdate(ctx context.Context, d *schema.ResourceData, m inter
 	if err := d.Set("upserted_count", res.UpsertedCount); err != nil {
 		return diag.FromErr(err)
 	}
-	log.Printf("[DEBUG] %s: resourceAvengersUpdate finished successfully", d.Id())
+	log.Printf("[DEBUG] %s: resourceAvengerUpdate finished successfully", d.Id())
 	return diags
 }
 
-type Client struct {
-	*aclient.Client
-}
-
-type patchedClient struct {
-	*ApiClient     // or just `data           *schema.ResourceData`
-	avengersClient *Client
-}
-
-type DeleteResult struct {
-	DeletedCount int `json:"DeletedCount,omitempty"`
-}
-
-func (c *Client) DeleteAvengerByName(avengerName string) (*aclient.DeleteResult, error) {
-	req, err := http.NewRequest("DELETE", fmt.Sprintf("%s/avengers/deleteAvengerByName", c.HostURL), http.NoBody)
-
-	req.URL.Query().Add("name", avengerName)
-	if err != nil {
-		return nil, err
-	}
-
-	body, err := c.DoRequest(req)
-	if err != nil {
-		return nil, err
-	}
-
-	var deleteResult aclient.DeleteResult
-	err = json.Unmarshal(body, &deleteResult)
-	if err != nil {
-		return nil, err
-	}
-
-	return &deleteResult, nil
-}
-
-func resourceAvengersDelete(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
-	log.Printf("[DEBUG] %s: Beginning resourceAvengersDelete", d.Id())
+func resourceAvengerDelete(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
+	log.Printf("[DEBUG] %s: Beginning resourceAvengerDelete", d.Id())
 	var diags diag.Diagnostics
 	c := m.(*ApiClient)
 	name := d.Get("name").(string)
@@ -242,8 +166,22 @@ func resourceAvengersDelete(ctx context.Context, d *schema.ResourceData, m inter
 		return diag.FromErr(err)
 	}
 	d.SetId("")
-	log.Printf("[DEBUG] %s: resourceAvengersDelete finished successfully", d.Id())
+	log.Printf("[DEBUG] %s: resourceAvengerDelete finished successfully", d.Id())
 	return diags
+}
+
+func flattenAvenger(avenger *aclient.Avenger) *map[string]interface{} {
+	item := make(map[string]interface{})
+
+	if avenger == nil {
+		return &item //TODO: is this right?
+	}
+	item["_id"] = avenger.ID
+	item["name"] = avenger.Name
+	item["alias"] = avenger.Alias
+	item["weapon"] = avenger.Weapon
+
+	return &item
 }
 
 func flattenAvengers(avengersList *[]aclient.Avenger) []interface{} {
@@ -252,14 +190,9 @@ func flattenAvengers(avengersList *[]aclient.Avenger) []interface{} {
 	}
 	avengers := make([]interface{}, len(*avengersList))
 	for i, avenger := range *avengersList {
-		item := make(map[string]interface{})
+		item := flattenAvenger(&avenger)
 
-		item["_id"] = avenger.ID
-		item["name"] = avenger.Name
-		item["alias"] = avenger.Alias
-		item["weapon"] = avenger.Weapon
-
-		avengers[i] = item
+		avengers[i] = *item
 	}
 	return avengers
 }
