@@ -5,7 +5,8 @@ import (
 
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
-	aclient "github.com/sourav977/avengers-client"
+
+	"terraform-provider-avengers/avengers/aclient"
 )
 
 // Provider -

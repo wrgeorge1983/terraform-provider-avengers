@@ -2,9 +2,12 @@ package avengers
 
 import (
 	"context"
+	"encoding/json"
+	"fmt"
 	"log"
+	"net/http"
 
-	aclient "github.com/sourav977/avengers-client"
+	"terraform-provider-avengers/avengers/aclient"
 
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
@@ -189,8 +192,42 @@ func resourceAvengersUpdate(ctx context.Context, d *schema.ResourceData, m inter
 	return diags
 }
 
+type Client struct {
+	*aclient.Client
+}
+
+type patchedClient struct {
+	*ApiClient     // or just `data           *schema.ResourceData`
+	avengersClient *Client
+}
+
+type DeleteResult struct {
+	DeletedCount int `json:"DeletedCount,omitempty"`
+}
+
+func (c *Client) DeleteAvengerByName(avengerName string) (*aclient.DeleteResult, error) {
+	req, err := http.NewRequest("DELETE", fmt.Sprintf("%s/avengers/deleteAvengerByName", c.HostURL), http.NoBody)
+
+	req.URL.Query().Add("name", avengerName)
+	if err != nil {
+		return nil, err
+	}
+
+	body, err := c.DoRequest(req)
+	if err != nil {
+		return nil, err
+	}
+
+	var deleteResult aclient.DeleteResult
+	err = json.Unmarshal(body, &deleteResult)
+	if err != nil {
+		return nil, err
+	}
+
+	return &deleteResult, nil
+}
+
 func resourceAvengersDelete(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
-	// Warning or errors can be collected in a slice type
 	log.Printf("[DEBUG] %s: Beginning resourceAvengersDelete", d.Id())
 	var diags diag.Diagnostics
 	c := m.(*ApiClient)
@@ -198,6 +235,8 @@ func resourceAvengersDelete(ctx context.Context, d *schema.ResourceData, m inter
 	del, err := c.avengersClient.DeleteAvengerByName(name)
 	if err != nil {
 		return diag.FromErr(err)
+	} else if del.DeletedCount < 1 {
+		return diag.Errorf("deleting %s failed.  Avenger by that name may not have been found", name)
 	}
 	if err := d.Set("deleted_count", del.DeletedCount); err != nil {
 		return diag.FromErr(err)
